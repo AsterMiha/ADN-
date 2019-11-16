@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:hello_world/main.dart';
+import 'package:hello_world/Med.dart';
 import 'package:flutter/foundation.dart';
 
 enum ReadState{
@@ -99,7 +99,8 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
       result.add(
         RaisedButton(
           onPressed: (() => onMedPressed(copyId)),
-          child: Med.toWidget(_listViewData[copyId]),
+          child: Med.toWidget(_listViewData[copyId], 
+            Med.getColor(_listViewData[copyId]), false),
         ),
       );
       result.add(SizedBox(height: 15.0, width: 5.0));
@@ -285,12 +286,13 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
     debugPrint('medId = $medId');
     return Scaffold(
       appBar: AppBar(
-        title: Text("Hello"),//Text(_listViewData[medId].name),
+        title: Text(_listViewData[medId].name),
       ),
       body: Column(
         children: <Widget> [
           buttonSection,
-          Med.toWidget(_listViewData[medId]),
+          Med.toWidget(_listViewData[medId], 
+            Med.getColor(_listViewData[medId]), true),
         ]
       )
     );
@@ -369,3 +371,4 @@ Column _buildButtonColumn(Color color, IconData icon, String label, Function fun
     return null;
   } 
 }
+
