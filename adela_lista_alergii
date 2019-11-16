@@ -1,0 +1,142 @@
+import 'package:flutter/material.dart';
+
+void main() => runApp(Alergies());
+
+class Alergies extends StatelessWidget {
+  // This widget is the root of your application.
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: UpdateAnimatedListScreen(),
+    );
+  }
+}
+
+class UpdateAnimatedListScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+	  resizeToAvoidBottomPadding: false,
+      appBar: AppBar(title: Text('Alergies')),
+      body: BodyLayout(),
+    );
+  }
+}
+
+class BodyLayout extends StatefulWidget {
+  @override
+  BodyLayoutState createState() {
+    return new BodyLayoutState();
+  }
+}
+
+class BodyLayoutState extends State<BodyLayout> {
+
+  // The GlobalKey keeps track of the visible state of the list items
+  // while they are being animated.
+  final GlobalKey<AnimatedListState> _listKey = GlobalKey();
+
+  // backing data
+  List<String> _data = [];
+
+  TextEditingController _textControllerAdd = TextEditingController();
+  TextEditingController _textControllerRemove = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) {
+    return new Container(
+		child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+			children: <Widget>[
+				SizedBox(height: 10.0),
+				TextField(
+					controller: _textControllerAdd,
+					decoration: InputDecoration(
+					hintText: 'Add alergy',
+					),
+				),
+				RaisedButton(
+				child: Text('Add alergy', style: TextStyle(fontSize: 10)),
+				onPressed: () {
+					_insertSingleItem();
+				},
+				),
+				SizedBox(height: 10.0),
+				TextField(
+					controller: _textControllerRemove,
+					decoration: InputDecoration(
+					hintText: 'Remove alergy',
+					),
+				),
+				RaisedButton(
+				child: Text('Remove alergy', style: TextStyle(fontSize: 10)),
+				onPressed: () {
+					_removeSingleItem();
+				},
+				),
+				SizedBox(
+				height: 300,
+				child: AnimatedList(
+					// Give the Animated list the global key
+					key: _listKey,
+					initialItemCount: _data.length,
+					// Similar to ListView itemBuilder, but AnimatedList has
+					// an additional animation parameter.
+					itemBuilder: (context, index, animation) {
+					// Breaking the row widget out as a method so that we can
+					// share it with the _removeSingleItem() method.
+					return _buildItem(_data[index], animation);
+					},
+				),
+				),
+			],
+		)
+	);
+}
+
+  // This is the animated row with the Card.
+  Widget _buildItem(String item, Animation animation) {
+    return SizeTransition(
+      sizeFactor: animation,
+      child: Card(
+        child: ListTile(
+          title: Text(
+            item,
+            style: TextStyle(fontSize: 20),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _insertSingleItem() {
+	if (_textControllerAdd.text.isEmpty == false){
+		int insertIndex = 0;
+		if (_data.contains(_textControllerAdd.text) == false) {
+		_data.add(_textControllerAdd.text);
+		_listKey.currentState.insertItem(insertIndex);
+		_data.sort();
+		}
+	}
+  }
+
+  void _removeSingleItem() {
+    int removeIndex = _data.indexOf(_textControllerRemove.text);
+	if (removeIndex > -1){
+		_data.remove(_textControllerRemove.text);
+	
+		AnimatedListRemovedItemBuilder builder = (context, animation) {
+			return _buildItem(_textControllerRemove.text, animation);
+			};
+		// Remove the item visually from the AnimatedList.
+		_listKey.currentState.removeItem(removeIndex, builder);
+	}
+  }
+
+
+}
