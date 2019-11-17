@@ -3,6 +3,8 @@ import 'package:flutter/rendering.dart';
 import 'package:hello_world/Med.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'dart:async';
 
 
@@ -63,6 +65,8 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
   void initState() {
     super.initState();
 
+    _read();
+
     flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
     var android = new AndroidInitializationSettings('@mipmap/ic_launcher');
     var iOS = new IOSInitializationSettings();
@@ -95,7 +99,7 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
     var iOS = new IOSNotificationDetails();
     var platform = new NotificationDetails(android, iOS);
     
-    debugPrint("*date = " + date.toString());
+    //debugPrint("*date = " + date.toString());
     currNotificationId = currNotificationId + 1;
     await flutterLocalNotificationsPlugin.schedule(
       currNotificationId++, title, body, date, platform, payload: payload,
@@ -104,6 +108,9 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
 
   void takeMed(){
     _listViewData[medId].takeMed();
+
+    _save();
+
     Med med = _listViewData[medId];
     String tmpName = med.name;
     DateTime lastTimeUsed = med.lastTimeTaken;
@@ -124,6 +131,7 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
   void onRemoveMed() {
     setState(() {
       _listViewData.removeAt(medId);
+      _save();
       onReturnView();
     });
   }
@@ -314,6 +322,8 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
             currHints = originalHints;
             _listViewData.add(new Med(
                 name, description, expiration, lastUse, timeBetweenUses));
+              
+            _save();
 
             DateTime nextUse = lastUse.add(new Duration(hours: timeBetweenUses));
             scheduleNotification("", name + " has expired.", "Your medication needs attention.", expiration);
@@ -473,4 +483,70 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
     }
     return null;
   }
+
+  Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+
+    return directory.path;
+  }
+
+  Future<File> get _localFile async {
+    final path = await _localPath;
+    return File('$path/medicamente.txt');
+  }
+
+  Future<String> readCounter() async {
+    try {
+      final file = await _localFile;
+
+      // Read the file
+      String contents = await file.readAsString();
+	  
+      return contents;
+    } catch (e) {
+      // If encountering an error, return 0
+      return null;
+    }
+  }
+
+  Future<File> writeCounter(String list) async {
+    final file = await _localFile;
+
+    // Write the file
+    return file.writeAsString(list);
+  }
+
+  void _save() {
+    StringBuffer sb = new StringBuffer();
+
+    List<Med> meds = new List.from(_listViewData);
+    for (int id = 0; id < meds.length; id++) {
+      Med med = meds[id];
+      sb.writeln(med.name);
+      sb.writeln(med.description);
+      sb.writeln(med.expirationDate.toString());
+      sb.writeln(med.lastTimeTaken.toString());
+      sb.writeln(med.timeBetweenUses.toString());
+    }
+
+    writeCounter(sb.toString());
+  }
+
+   void _read() {
+     _listViewData.clear();
+    readCounter().then((String contents) {
+      if(contents == null)
+        return;
+      else {
+        List<String> data = contents.split("\n");
+        for(int i = 0; i + 4 < data.length; i += 5)
+        {
+          Med med = new Med(data[i], data[i+1], DateTime.parse(data[i+2]),
+            DateTime.parse(data[i+3]), int.parse(data[i+4]));
+          _listViewData.add(med);
+        }
+      }
+    });
+  }
+
 }
