@@ -8,11 +8,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
 
 List<Appointment> apList = [];
-int id=0;
+int id = 0;
 
-List<Widget> wApList(List<Appointment> l, context){
+List<Widget> wApList(List<Appointment> l, context) {
   List<Widget> newL = [];
-  for(var i=0; i<l.length; i++){
+  for (var i = 0; i < l.length; i++) {
     newL.add(l[i].toWidget(context));
   }
   return newL;
@@ -27,11 +27,33 @@ class Appointments extends StatefulWidget {
 }
 
 class _Appointments extends State<Appointments> {
-  _Appointments(){
-    //Future<String> contents = readCounter();
+  Timer timer;
+
+  void initState() {
+    super.initState();
+    readCounter().then((String contents) {
+      //setState(() {
+        if (contents == null) {
+          apList = [];
+        }
+        else{
+          apList = [];
+          List<String> data = contents.split("\n");
+          for (int i = 0; i < data.length; i=i+5) {
+            apList.add(new Appointment(
+              data[i],
+              data[i+1],
+              data[i+2],
+              DateTime.parse(data[i+3]),
+              int.parse(data[i+4])
+            ));
+          }
+        }
+      });
+      timer = Timer.periodic(Duration(seconds: 1), (Timer t) => setState((){}));
+    //});
   }
 
-  
   Future<String> get _localPath async {
     final directory = await getApplicationDocumentsDirectory();
 
@@ -40,7 +62,7 @@ class _Appointments extends State<Appointments> {
 
   Future<File> get _localFile async {
     final path = await _localPath;
-    return File('$path/programari.json');
+    return File('$path/appointments.txt');
   }
 
   Future<String> readCounter() async {
@@ -49,7 +71,7 @@ class _Appointments extends State<Appointments> {
 
       // Read the file
       String contents = await file.readAsString();
-	  
+
       return contents;
     } catch (e) {
       // If encountering an error, return 0
@@ -108,6 +130,23 @@ class _SeeAppointmentDetails extends State<SeeAppointmentDetails> {
 
   _SeeAppointmentDetails(this.name, this.place, this.other, this.time, this.id);
 
+  Future<String> get _localPath async {
+    final directory = await getApplicationDocumentsDirectory();
+
+    return directory.path;
+  }
+
+  Future<File> get _localFile async {
+    final path = await _localPath;
+    print("""found local path\n\n\n""");
+    return File('$path/appointments.txt');
+  }
+
+  Future<File> writeCounter(String list) async {
+    final file = await _localFile;
+    return file.writeAsString(list);
+  }
+
   void rmAp() {
     for (var i = 0; i < apList.length; i++) {
       if (apList[i].id == id) {
@@ -115,6 +154,18 @@ class _SeeAppointmentDetails extends State<SeeAppointmentDetails> {
         break;
       }
     }
+
+    var sb = new StringBuffer();
+    for(int i=0; i<apList.length; i++){
+      sb.writeln(apList[i].name);
+      sb.writeln(apList[i].place);
+      sb.writeln(apList[i].other);
+      sb.writeln(apList[i].time.toString());
+      sb.writeln(apList[i].id.toString());
+    }
+
+    writeCounter(sb.toString());
+
   }
 
   @override
@@ -153,29 +204,27 @@ class _SeeAppointmentDetails extends State<SeeAppointmentDetails> {
             ),
             SizedBox(height: 30.0),
             Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              RaisedButton(
-              child: Text('Edit'),
-              onPressed: () {
-                rmAp();
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (context) => AddAppointment(
-                            time,
-                            TimeOfDay(hour: time.hour, minute: time.minute),
-                            name,
-                            place,
-                            other)));
-              },
-            ),
-            ],
-            ),
-            SizedBox(height: 30.0),
-            Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: <Widget>[
+                RaisedButton(
+                  child: Text('Edit'),
+                  onPressed: () {
+                    rmAp();
+                    Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => AddAppointment(
+                                time,
+                                TimeOfDay(hour: time.hour, minute: time.minute),
+                                name,
+                                place,
+                                other)));
+                  },
+                ),
+              ],
+            ),
+            SizedBox(height: 30.0),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: <Widget>[
               RaisedButton(
                 child: Text('Remove'),
                 onPressed: () {
@@ -183,8 +232,7 @@ class _SeeAppointmentDetails extends State<SeeAppointmentDetails> {
                   Navigator.pop(context);
                 },
               ),
-              ]
-            ),
+            ]),
           ],
         ),
       ),
@@ -211,16 +259,6 @@ class Appointment {
                     SeeAppointmentDetails(name, place, other, time, id)));
       },
       child: Text('$name'),
-    );
-  }
-
-  factory Appointment.fromJson(Map<String, dynamic> json) {
-    return new Appointment(
-      json['name'] as String,
-      json['place'] as String,
-      json['other'] as String,
-      json['time'] as DateTime,
-      json['id'] as int,
     );
   }
 }
@@ -273,24 +311,8 @@ class _AddAppointment extends State<AddAppointment> {
     return File('$path/appointments.txt');
   }
 
-  Future<String> readCounter() async {
-    try {
-      final file = await _localFile;
-
-      // Read the file
-      String contents = await file.readAsString();
-
-      return contents;
-    } catch (e) {
-      // If encountering an error, return 0
-      return null;
-    }
-  }
-
   Future<File> writeCounter(String list) async {
     final file = await _localFile;
-
-    // Write the file
     return file.writeAsString(list);
   }
 
@@ -340,7 +362,17 @@ class _AddAppointment extends State<AddAppointment> {
     id = id + 1;
     apList.add(ap);
     Navigator.pop(context);
-    print(apList);
+
+    var sb = new StringBuffer();
+    for(int i=0; i<apList.length; i++){
+      sb.writeln(apList[i].name);
+      sb.writeln(apList[i].place);
+      sb.writeln(apList[i].other);
+      sb.writeln(apList[i].time.toString());
+      sb.writeln(apList[i].id.toString());
+    }
+
+    writeCounter(sb.toString());
   }
 
   @override
