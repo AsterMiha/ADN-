@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:hello_world/Med.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'dart:async';
 
-enum ReadState{
+
+enum ReadState {
   READING_NAME,
   READING_DESCRIPTION,
   READING_EXPIRATION,
@@ -11,11 +14,7 @@ enum ReadState{
   READING_TIMEBETWEEN
 }
 
-enum ViewState{
-  VIEW_MEDS,
-  CREATE_MEDS,
-  VIEW_ONE_MED_DETAILED
-}
+enum ViewState { VIEW_MEDS, CREATE_MEDS, VIEW_ONE_MED_DETAILED }
 
 class AddRemoveListView extends StatefulWidget {
   _AddRemoveListViewState createState() => _AddRemoveListViewState();
@@ -29,6 +28,8 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
   DateTime expiration;
   DateTime lastUse;
   int timeBetweenUses;
+
+  Timer timer;
 
   ReadState state = ReadState.READING_NAME;
   List<String> originalHints = [
@@ -53,25 +54,137 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
   List<Med> _listViewData = [];
   ViewState view;
   int medId;
+  BuildContext context;
+
+  int currNotificationId;
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin;
 
   @override
   void initState() {
     super.initState();
+
+    flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
+    var android = new AndroidInitializationSettings('@mipmap/ic_launcher');
+    var iOS = new IOSInitializationSettings();
+    var initSettings = new InitializationSettings(android, iOS);
+    flutterLocalNotificationsPlugin.initialize(initSettings, onSelectNotification: onSelectNotification);
+    currNotificationId = 0;
+
+    
+    /*scheduleNotification("", " is due.", "Your medication needs attention.", 
+        DateTime.now().add(new Duration(seconds: 5)));  
+    currNotificationId++;*/ 
+
     currHints = originalHints;
     currIndex = 0;
     view = ViewState.VIEW_MEDS;
     medId = 0;
-    debugPrint('IM HERE');
+    timer = new Timer.periodic(Duration(seconds: 1), 
+      (Timer t) => setState((){}));
+  }
+
+  Future onSelectNotification(String payload) {
+    onReturnView();
+    return null;
+  }
+
+  void scheduleNotification(String payload, String title, String body, 
+    DateTime date) async {
+    var android = new AndroidNotificationDetails('channel id', 'channel name', 'CHANNEL DESCRIPTION',
+      importance: Importance.High, priority: Priority.High, ticker: 'ticker');
+    var iOS = new IOSNotificationDetails();
+    var platform = new NotificationDetails(android, iOS);
+    
+    debugPrint("*date = " + date.toString());
+    currNotificationId = currNotificationId + 1;
+    await flutterLocalNotificationsPlugin.schedule(
+      currNotificationId++, title, body, date, platform, payload: payload,
+      androidAllowWhileIdle: true);
+  }
+
+  void takeMed(){
+    _listViewData[medId].takeMed();
+    Med med = _listViewData[medId];
+    String tmpName = med.name;
+    DateTime lastTimeUsed = med.lastTimeTaken;
+    int timeBetween = med.timeBetweenUses;
+
+    DateTime nextUse = lastTimeUsed.add(new Duration(hours: timeBetween));
+    if(DateTime.now().isBefore(nextUse))
+      scheduleNotification("", tmpName + " is due.", "Your medication needs attention.", nextUse);     
   }
 
   void onMedPressed(int id) {
     setState(() {
-      debugPrint('id = $id');
-      debugPrint('medId = $medId');
       view = ViewState.VIEW_ONE_MED_DETAILED;
       medId = id;
-      debugPrint('medId = $medId');
     });
+  }
+
+  void onRemoveMed() {
+    setState(() {
+      _listViewData.removeAt(medId);
+      onReturnView();
+    });
+  }
+
+  void onResetReading() {
+    setState(() {
+      state = ReadState.READING_NAME;
+      currIndex = 0;
+      currHints = originalHints;
+      medId = 0;
+    });
+  }
+
+  void onTakeMed() {
+    setState(() {
+      if(_listViewData[medId].shouldTakeMed() == TakeMedResponse.TAKE_MED)
+        takeMed();
+      else
+        promptAlertTakeMed(this.context);
+    });
+  }
+
+  void promptAlertTakeMed(BuildContext context) {
+
+    Widget cancelButton = FlatButton(
+      child: Text("Cancel"),
+      onPressed: () {
+        Navigator.of(context, rootNavigator: true).pop();
+      },
+    );
+
+    Widget acceptButton = FlatButton(
+      child: Text("Do it anyway"),
+      onPressed: () {
+        takeMed();
+        Navigator.of(context, rootNavigator: true).pop();
+      },
+    );
+
+    String textContent = "";
+    TakeMedResponse response = _listViewData[medId].shouldTakeMed();
+    if(response == TakeMedResponse.NOT_YET)
+      textContent = "It is not yet time to take your medicine.";
+    else
+      textContent = "The medicine is expired!";
+
+    AlertDialog alert = AlertDialog(
+      title: Text("Attention!"),
+      content: Text(textContent),
+      actions: [
+        cancelButton,
+        acceptButton,
+      ],
+    );
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return alert;
+      },
+    );
   }
 
   void onReturnCreate() {
@@ -89,175 +202,162 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
   Widget getMeds() {
     List<Widget> result = new List<Widget>();
     result.add(SizedBox(height: 15.0, width: 5.0));
-
-    //int id = 0;
-    //for(Med med in _listViewData)
-    for(int id = 0; id < _listViewData.length; id++)
-    {
-      debugPrint('id = $id');
+  
+    for (int id = 0; id < _listViewData.length; id++) {
       int copyId = id;
       result.add(
         RaisedButton(
           onPressed: (() => onMedPressed(copyId)),
-          child: Med.toWidget(_listViewData[copyId], 
-            Med.getColor(_listViewData[copyId]), false),
+          child: Med.toWidget(_listViewData[copyId],
+              Med.getColor(_listViewData[copyId]), false),
         ),
       );
       result.add(SizedBox(height: 15.0, width: 5.0));
     }
-    return Expanded( 
-      child: ListView(
-       padding: EdgeInsets.all(10.0),
-       children: result
-      ),
+    return Expanded(
+      child: ListView(padding: EdgeInsets.all(10.0), children: result),
     );
   }
 
   _onSubmit() {
     setState(() {
-    switch(state)
-    {
-      case ReadState.READING_NAME:
-        {
-          String txt = _textController.text;
-          _textController.clear();
-          if(txt.length >= 50)
+      switch (state) {
+        case ReadState.READING_NAME:
           {
-            currHints[0] = "Please input shorter name";
-            return;
-          }
+            String txt = _textController.text;
+            _textController.clear();
+            if (txt.length >= 50) {
+              currHints[0] = "Please input shorter name";
+              return;
+            }
 
-          if(txt.length <= 2)
-          {
-            currHints[0] = "Please input name with at least 3 characters.";
-            return;
-          }
+            if (txt.length <= 2) {
+              currHints[0] = "Please input name with at least 3 characters.";
+              return;
+            }
 
-          currIndex = 1;
-          name = txt;
-          state = ReadState.READING_DESCRIPTION;
-        }
-      break;
-      case ReadState.READING_DESCRIPTION:
-        {
-          String txt = _textController.text;
-          _textController.clear();
-          if(txt.length >= 200)
+            currIndex = 1;
+            name = txt;
+            state = ReadState.READING_DESCRIPTION;
+          }
+          break;
+        case ReadState.READING_DESCRIPTION:
           {
+            String txt = _textController.text;
+            _textController.clear();
+            if (txt.length >= 200) {
+              state = ReadState.READING_EXPIRATION;
+              currHints[1] = "Please input shorter description";
+              return;
+            }
+
+            currIndex = 2;
+            description = txt;
             state = ReadState.READING_EXPIRATION;
-            currHints[1] = "Please input shorter description";
-            return;
           }
-
-          currIndex = 2;
-          description = txt;
-          state = ReadState.READING_EXPIRATION;
-        }
-      break;
-      case ReadState.READING_EXPIRATION:
-        {
-          String txt = _textController.text;
-          _textController.clear();
-
-          DateTime expiration;
-          try {
-             expiration = DateTime.parse(txt);
-          }
-          on FormatException {
-            currHints[2] = "Please use the format: 2012-02-27 13:27:00";
-            return;
-          }
-          currIndex = 3;
-          this.expiration = expiration;
-          state = ReadState.READING_LASTUSE;
-        }
-      break;
-      case ReadState.READING_LASTUSE:
-        {
-          String txt = _textController.text;
-          _textController.clear();
-
-          DateTime lastUse;
-          try {
-             lastUse = DateTime.parse(txt);
-          }
-          on FormatException {
-            currHints[3] = "Please use the format: 2012-02-27 13:27:00";
-            return;
-          }
-          currIndex = 4;
-          this.lastUse = lastUse;
-          state = ReadState.READING_TIMEBETWEEN;
-        }
-      break;
-      case ReadState.READING_TIMEBETWEEN:
-        {
-          String txt = _textController.text;
-          _textController.clear();
-
-          int timeBetweenUses;
-          try {
-            timeBetweenUses = int.parse(txt);
-          }
-          on FormatException {
-            currHints[4] = "Please enter a positive integer";
-            return;
-          }
-
-          if(timeBetweenUses <= 0)
+          break;
+        case ReadState.READING_EXPIRATION:
           {
-            currHints[4] = "You entered an integer <= 0";
-            return;
-          }
+            String txt = _textController.text;
+            _textController.clear();
 
-          currIndex = 0;
-          this.timeBetweenUses = timeBetweenUses;
-          state = ReadState.READING_NAME;
-          currHints = originalHints;
-          _listViewData.add(new Med(name, description, expiration, lastUse,
-            timeBetweenUses));
-        }
-      break;
-    }
+            DateTime expiration;
+            try {
+              expiration = DateTime.parse(txt);
+            } on FormatException {
+              currHints[2] = "Please use the format: 2012-02-27 13:27:00";
+              return;
+            }
+            currIndex = 3;
+            this.expiration = expiration;
+            state = ReadState.READING_LASTUSE;
+          }
+          break;
+        case ReadState.READING_LASTUSE:
+          {
+            String txt = _textController.text;
+            _textController.clear();
+
+            DateTime lastUse;
+            try {
+              lastUse = DateTime.parse(txt);
+            } on FormatException {
+              currHints[3] = "Please use the format: 2012-02-27 13:27:00";
+              return;
+            }
+            currIndex = 4;
+            this.lastUse = lastUse;
+            state = ReadState.READING_TIMEBETWEEN;
+          }
+          break;
+        case ReadState.READING_TIMEBETWEEN:
+          {
+            String txt = _textController.text;
+            _textController.clear();
+
+            int timeBetweenUses;
+            try {
+              timeBetweenUses = int.parse(txt);
+            } on FormatException {
+              currHints[4] = "Please enter a positive integer";
+              return;
+            }
+
+            if (timeBetweenUses <= 0) {
+              currHints[4] = "You entered an integer <= 0";
+              return;
+            }
+
+            currIndex = 0;
+            this.timeBetweenUses = timeBetweenUses;
+            state = ReadState.READING_NAME;
+            currHints = originalHints;
+            _listViewData.add(new Med(
+                name, description, expiration, lastUse, timeBetweenUses));
+
+            DateTime nextUse = lastUse.add(new Duration(hours: timeBetweenUses));
+            scheduleNotification("", name + " has expired.", "Your medication needs attention.", expiration);
+            if(DateTime.now().isBefore(nextUse))
+              scheduleNotification("", name + " is due.", "Your medication needs attention.", nextUse);
+          }
+          break;
+      }
     });
   }
 
   Widget getCreateView() {
-
     Color color = Colors.indigo;
     Widget buttonSection = Container(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _buildButtonColumn(color, Icons.add, 'ADD MED', onReturnCreate),
-          _buildButtonColumn(color, Icons.remove_red_eye, 'VIEW MEDS', onReturnView),
+          _buildButtonColumn(
+              color, Icons.remove_red_eye, 'VIEW MEDS', onReturnView),
+          _buildButtonColumn(color, Icons.undo, 'UNDO SUBMISSIONS', onResetReading),
         ],
       ),
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Add medication'),
-      ),
-      body: Column(
-        children: <Widget> [
+        appBar: AppBar(
+          title: Text('Add medication'),
+        ),
+        body: Column(children: <Widget>[
           buttonSection,
           SizedBox(height: 15.0),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              SizedBox(width: 20),
-              Expanded(
-                child: TextField(
-                  controller: _textController,
-                  decoration: InputDecoration(
-                    hintText: currHints[currIndex],
-                  ), 
+          Row(mainAxisAlignment: MainAxisAlignment.spaceEvenly, children: [
+            SizedBox(width: 20),
+            Expanded(
+              child: TextField(
+                controller: _textController,
+                decoration: InputDecoration(
+                  hintText: currHints[currIndex],
                 ),
               ),
-              SizedBox(width: 20),
-            ]
-          ),
+            ),
+            SizedBox(width: 20),
+          ]),
           SizedBox(height: 15.0),
           Center(
             child: RaisedButton(
@@ -266,9 +366,7 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
               color: Colors.red[500],
             ),
           ),
-        ]
-      )
-    );
+        ]));
   }
 
   Widget getDetailedMedView() {
@@ -278,24 +376,31 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _buildButtonColumn(color, Icons.add, 'ADD MED', onReturnCreate),
-          _buildButtonColumn(color, Icons.remove_red_eye, 'VIEW MEDS', onReturnView),
+          _buildButtonColumn(
+              color, Icons.remove_red_eye, 'VIEW MEDS', onReturnView),
+          _buildButtonColumn(color, Icons.remove, 'REMOVE THIS', onRemoveMed),
+          _buildButtonColumn(color, Icons.local_pharmacy, 'TAKE THIS', onTakeMed),
         ],
       ),
     );
 
-    debugPrint('medId = $medId');
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_listViewData[medId].name),
-      ),
-      body: Column(
-        children: <Widget> [
+        appBar: AppBar(
+          title: Text(_listViewData[medId].name),
+        ),
+        body: Column(children: <Widget>[
           buttonSection,
-          Med.toWidget(_listViewData[medId], 
-            Med.getColor(_listViewData[medId]), true),
-        ]
-      )
-    );
+          SizedBox(height: 15.0),
+          Expanded(
+            child: ListView(
+              padding: EdgeInsets.all(10.0),
+              children: [
+                Med.toWidget(_listViewData[medId],
+                    Med.getColor(_listViewData[medId]), true)
+              ],
+            ),
+          )
+        ]));
   }
 
   Widget getMedsView() {
@@ -305,26 +410,24 @@ class _AddRemoveListViewState extends State<AddRemoveListView> {
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           _buildButtonColumn(color, Icons.add, 'ADD MED', onReturnCreate),
-          _buildButtonColumn(color, Icons.remove_red_eye, 'VIEW MEDS', onReturnView),
-          //_buildButtonColumn(color, Icons.share, 'SHARE'),
+          _buildButtonColumn(
+              color, Icons.remove_red_eye, 'VIEW MEDS', onReturnView),
         ],
       ),
     );
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Current medication'),
-      ),
-      body: Column(
-        children: <Widget> [
+        appBar: AppBar(
+          title: Text('Current medication'),
+        ),
+        body: Column(children: <Widget>[
           buttonSection,
           getMeds(),
-        ]
-      )
-    );
+        ]));
   }
 
-Column _buildButtonColumn(Color color, IconData icon, String label, Function func) {
+  Column _buildButtonColumn(
+      Color color, IconData icon, String label, Function func) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -350,25 +453,24 @@ Column _buildButtonColumn(Color color, IconData icon, String label, Function fun
 
   @override
   Widget build(BuildContext context) {
-    switch(view)
-    {
+    this.context = context;
+    switch (view) {
       case ViewState.CREATE_MEDS:
-      {
-        return getCreateView();
-      }
-      break;
+        {
+          return getCreateView();
+        }
+        break;
       case ViewState.VIEW_MEDS:
-      {
-        return getMedsView();
-      }
-      break;
+        {
+          return getMedsView();
+        }
+        break;
       case ViewState.VIEW_ONE_MED_DETAILED:
-      {
-        return getDetailedMedView();
-      }
-      break;
+        {
+          return getDetailedMedView();
+        }
+        break;
     }
     return null;
-  } 
+  }
 }
-

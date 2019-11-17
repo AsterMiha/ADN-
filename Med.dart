@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 enum TakeMedResponse { TAKE_MED, NOT_YET, ITS_EXPIRED }
 
@@ -12,8 +13,9 @@ class Med {
   Med(this._name, this._description, this._expirationDate, this._lastTimeTaken,
       this._timeBetweenUses);
 
-  _takeMed() {
+  void takeMed() {
     _lastTimeTaken = DateTime.now();
+    //_makeTakeMedNotification();
   }
 
   bool _isMedExpired() {
@@ -58,17 +60,7 @@ class Med {
         SizedBox(height: 15.0),
       ]);
     else {
-      Duration timeLeft = med._lastTimeTaken.difference(DateTime.now());
-      int days = timeLeft.inDays;
-      int hours = timeLeft.inHours;
-      int minutes = timeLeft.inMinutes % 60;
-      int seconds = timeLeft.inSeconds % 60;
-      String sTimeLeft = hours.toString() + ":" + minutes.toString() +
-        ":" + seconds.toString();
-      if(days == 1)
-        sTimeLeft = days.toString() + "day - " + sTimeLeft;
-      if(days > 1)
-        sTimeLeft = days.toString() + "days - " + sTimeLeft;
+      DateTime nextDate = med._lastTimeTaken.add(new Duration(hours: med._timeBetweenUses));
       return Column(children: [
         Align(
           alignment: FractionalOffset(0.03, 0),
@@ -81,7 +73,7 @@ class Med {
         Align(
           alignment: FractionalOffset(0.03, 0),
           child: Text(
-            "Expiration Date: " + med._expirationDate.toString(),
+            "Expiration Date: " + new DateFormat.yMMMMEEEEd().format(med.expirationDate),
             style: TextStyle(color: color, fontSize: 16),
           ),
         ),
@@ -89,8 +81,8 @@ class Med {
         Align(
           alignment: FractionalOffset(0.03, 0),
           child: Text(
-            "Last time the medicine was taken: " +
-                med._lastTimeTaken.toString(),
+            "Last time the medicine was taken: " +  new DateFormat.yMMMMEEEEd().format(med._lastTimeTaken) + " " +
+                new DateFormat.Hms().format(med._lastTimeTaken),
             style: TextStyle(color: color, fontSize: 16),
           ),
         ),
@@ -98,7 +90,17 @@ class Med {
         Align(
           alignment: FractionalOffset(0.03, 0),
           child: Text(
-            "Time until you should take it again: " + sTimeLeft,
+            "Time when you should take it again: " +  new DateFormat.yMMMMEEEEd().format(nextDate) + " " +
+                new DateFormat.Hms().format(nextDate),
+            style: TextStyle(color: color, fontSize: 16),
+          ),
+        ),
+        SizedBox(height: 15.0),
+        Align(
+          alignment: FractionalOffset(0.03, 0),
+          child: Text(
+            "Current date and time: " +  new DateFormat.yMMMMEEEEd().format(DateTime.now()) + " " +
+                new DateFormat.Hms().format(DateTime.now()),
             style: TextStyle(color: color, fontSize: 16),
           ),
         ),
@@ -109,8 +111,7 @@ class Med {
 
   static Color getColor(Med med) {
     TakeMedResponse resp = med.shouldTakeMed();
-    switch(resp)
-    {
+    switch (resp) {
       case TakeMedResponse.ITS_EXPIRED:
         return Colors.red[500];
       case TakeMedResponse.NOT_YET:
