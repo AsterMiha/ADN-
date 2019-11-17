@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:io';
-import 'dart:convert';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:intl/intl.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 List<Appointment> apList = [];
 int id = 0;
@@ -31,27 +30,20 @@ class _Appointments extends State<Appointments> {
 
   void initState() {
     super.initState();
+
     readCounter().then((String contents) {
-      //setState(() {
-        if (contents == null) {
-          apList = [];
+      if (contents == null) {
+        apList = [];
+      } else {
+        apList = [];
+        List<String> data = contents.split("\n");
+        for (int i = 0; i < data.length; i = i + 5) {
+          apList.add(new Appointment(data[i], data[i + 1], data[i + 2],
+              DateTime.parse(data[i + 3]), int.parse(data[i + 4])));
         }
-        else{
-          apList = [];
-          List<String> data = contents.split("\n");
-          for (int i = 0; i < data.length; i=i+5) {
-            apList.add(new Appointment(
-              data[i],
-              data[i+1],
-              data[i+2],
-              DateTime.parse(data[i+3]),
-              int.parse(data[i+4])
-            ));
-          }
-        }
-      });
-      timer = Timer.periodic(Duration(seconds: 1), (Timer t) => setState((){}));
-    //});
+      }
+    });
+    timer = Timer.periodic(Duration(seconds: 1), (Timer t) => setState(() {}));
   }
 
   Future<String> get _localPath async {
@@ -156,7 +148,7 @@ class _SeeAppointmentDetails extends State<SeeAppointmentDetails> {
     }
 
     var sb = new StringBuffer();
-    for(int i=0; i<apList.length; i++){
+    for (int i = 0; i < apList.length; i++) {
       sb.writeln(apList[i].name);
       sb.writeln(apList[i].place);
       sb.writeln(apList[i].other);
@@ -165,7 +157,6 @@ class _SeeAppointmentDetails extends State<SeeAppointmentDetails> {
     }
 
     writeCounter(sb.toString());
-
   }
 
   @override
@@ -291,12 +282,46 @@ class _AddAppointment extends State<AddAppointment> {
 
   String _dateStr = ' ', _timeStr = ' ';
 
+  var flutterLocalNotificationsPlugin;
+  int currNotificationId=0;
+
   _AddAppointment(date, time, name, place, other) {
     _date = date;
     _time = time;
     _textControllerName.text = name;
     _textControllerPlace.text = place;
     _textControllerOther.text = other;
+  }
+
+  @override
+  void initState(){
+    super.initState();
+    flutterLocalNotificationsPlugin = new FlutterLocalNotificationsPlugin();
+    var android = new AndroidInitializationSettings('@mipmap/ic_launcher');
+    var iOS = new IOSInitializationSettings();
+    var initSettings = new InitializationSettings(android, iOS);
+    flutterLocalNotificationsPlugin.initialize(initSettings, onSelectNotification: onSelectNotification);
+    currNotificationId = 0;
+  }
+
+  Future<String> onSelectNotification(String payload){
+    if(this.mounted)
+      setState((){});
+    return null;
+  }
+
+  void scheduleNotification(String payload, String title, String body,
+    DateTime date) async {
+    var android = new AndroidNotificationDetails('channel id', 'channel name', 'CHANNEL DESCRIPTION',
+      importance: Importance.High, priority: Priority.High, ticker: 'ticker');
+    var iOS = new IOSNotificationDetails();
+    var platform = new NotificationDetails(android, iOS);
+    
+    debugPrint("*date = " + date.toString());
+    currNotificationId = currNotificationId + 1;
+    await flutterLocalNotificationsPlugin.schedule(
+      currNotificationId++, title, body, date, platform, payload: payload,
+      androidAllowWhileIdle: true);
   }
 
   Future<String> get _localPath async {
@@ -325,6 +350,7 @@ class _AddAppointment extends State<AddAppointment> {
 
     if (picked != null) {
       print('Selected: ${_date.toString()}');
+    if(this.mounted)
       setState(() {
         _date = picked;
         _dateStr = _dateFormat.format(_date);
@@ -340,6 +366,7 @@ class _AddAppointment extends State<AddAppointment> {
 
     if (picked != null) {
       print('Selected: ${_time.toString()}');
+    if(this.mounted)
       setState(() {
         _time = picked;
         _timeStr = picked.toString().substring(10, 15);
@@ -361,10 +388,18 @@ class _AddAppointment extends State<AddAppointment> {
     Appointment ap = new Appointment(name, place, other, time, id);
     id = id + 1;
     apList.add(ap);
-    Navigator.pop(context);
+    scheduleNotification('', 'You have an appointment!', name, time);
+
+    Navigator.popUntil(
+        context, ModalRoute.withName(Navigator.defaultRouteName));
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+          builder: (context) => Appointments(title: "Appointments")),
+    );
 
     var sb = new StringBuffer();
-    for(int i=0; i<apList.length; i++){
+    for (int i = 0; i < apList.length; i++) {
       sb.writeln(apList[i].name);
       sb.writeln(apList[i].place);
       sb.writeln(apList[i].other);
