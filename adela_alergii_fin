@@ -62,7 +62,7 @@ found local path\n\n\n""");
 
       // Read the file
       String contents = await file.readAsString();
-	  
+
       return contents;
     } catch (e) {
       // If encountering an error, return 0
@@ -103,7 +103,7 @@ found local path\n\n\n""");
 
       // Read the file
       String contents = await file.readAsString();
-	  
+
       return contents;
     } catch (e) {
       // If encountering an error, return 0
@@ -127,7 +127,6 @@ found local path\n\n\n""");
     super.initState();
     readCounter().then((String value) {
       setState(() {
-		  print ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
 		  if ((value == null) == false){
 			  print("value" + value);
 			  _data = value.split("\n");
@@ -138,10 +137,7 @@ found local path\n\n\n""");
 				  }
 				  _listKey.currentState.insertItem(i);
 			  }
-			  
-			//_listKey.currentState.insertItem(insertIndex);
 		  }
-        
       });
     });
   }
@@ -221,46 +217,40 @@ found local path\n\n\n""");
 	if (_textControllerAdd.text.isEmpty == false){
 		int insertIndex = 0;
 		if (_data.contains(_textControllerAdd.text) == false) {
-		_data.add(_textControllerAdd.text.trim());
-		_listKey.currentState.insertItem(insertIndex);
-		_data.sort();
+            _data.add(_textControllerAdd.text.trim());
+            _listKey.currentState.insertItem(insertIndex);
+            _data.sort();
 
-		var sb = new StringBuffer();
-		
-		for (int i = 0; i < _data.length - 1; i++){
-			sb.writeln(_data.elementAt(i).trim());
-		}
-		sb.write(_data.elementAt(_data.length - 1).trim());
-		
-		String toWriteToFile = sb.toString();
-		
-		writeCounter(toWriteToFile);
-		
-		}
-	}
+            var sb = new StringBuffer();
+            for (int i = 0; i < _data.length - 1; i++){
+              sb.writeln(_data.elementAt(i).trim());
+            }
+            sb.write(_data.elementAt(_data.length - 1).trim());
+            String toWriteToFile = sb.toString();
+            writeCounter(toWriteToFile);
+            }
+	  }
   }
 
   void _removeSingleItem() {
     int removeIndex = _data.indexOf(_textControllerRemove.text);
 	if (removeIndex > -1){
 		_data.remove(_textControllerRemove.text.trim());
-		print("scot elem ");
-		print(_data);
-	
+
 		AnimatedListRemovedItemBuilder builder = (context, animation) {
 			return _buildItem(_textControllerRemove.text, animation);
 			};
 		// Remove the item visually from the AnimatedList.
 		_listKey.currentState.removeItem(removeIndex, builder);
 		var sb = new StringBuffer();
-		
+
 		for (int i = 0; i < _data.length - 1; i++){
 			sb.writeln(_data.elementAt(i).trim());
 		}
 		sb.write(_data.elementAt(_data.length - 1).trim());
 
 		String toWriteToFile = sb.toString();
-		
+
 		writeCounter(toWriteToFile);
 	}
   }

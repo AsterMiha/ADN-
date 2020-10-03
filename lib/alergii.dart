@@ -51,7 +51,7 @@ found local path\n\n\n""");
 
       // Read the file
       String contents = await file.readAsString();
-	  
+
       return contents;
     } catch (e) {
       // If encountering an error, return 0
@@ -75,7 +75,6 @@ found local path\n\n\n""");
     super.initState();
     readCounter().then((String value) {
       setState(() {
-		  print ("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\n");
 		  if ((value == null) == false){
 			  print("value" + value);
 			  _data = value.split("\n");
@@ -86,10 +85,7 @@ found local path\n\n\n""");
 				  }
 				  _listKey.currentState.insertItem(i);
 			  }
-			  
-			//_listKey.currentState.insertItem(insertIndex);
 		  }
-        
       });
     });
   }
@@ -174,16 +170,16 @@ found local path\n\n\n""");
 		_data.sort();
 
 		var sb = new StringBuffer();
-		
+
 		for (int i = 0; i < _data.length - 1; i++){
 			sb.writeln(_data.elementAt(i).trim());
 		}
 		sb.write(_data.elementAt(_data.length - 1).trim());
-		
+
 		String toWriteToFile = sb.toString();
-		
+
 		writeCounter(toWriteToFile);
-		
+
 		}
 	}
   }
@@ -194,21 +190,21 @@ found local path\n\n\n""");
 		_data.remove(_textControllerRemove.text.trim());
 		print("scot elem ");
 		print(_data);
-	
+
 		AnimatedListRemovedItemBuilder builder = (context, animation) {
 			return _buildItem(_textControllerRemove.text, animation);
 			};
 		// Remove the item visually from the AnimatedList.
 		_listKey.currentState.removeItem(removeIndex, builder);
 		var sb = new StringBuffer();
-		
+
 		for (int i = 0; i < _data.length - 1; i++){
 			sb.writeln(_data.elementAt(i).trim());
 		}
 		sb.write(_data.elementAt(_data.length - 1).trim());
 
 		String toWriteToFile = sb.toString();
-		
+
 		writeCounter(toWriteToFile);
 	}
   }
